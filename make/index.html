@@ -57,7 +57,7 @@
       <button id="open" type="button">Open preview</button>
     </div>
     <ol>
-      <li>In Autonomous, set the viewport width to <strong id="width"></strong> px (the frame width).</li>
+      <li>In Autonomous, set the viewport to <strong id="size"></strong> (the Figma frame size). The width must match exactly. The height can be smaller; the rest of the design scrolls and full-page capture still gets all of it.</li>
       <li>Run 1: open this link and take a full-page visual checkpoint. It becomes the baseline.</li>
       <li>Run 2: change only the URL to the live website page and run again.</li>
     </ol>
@@ -93,7 +93,7 @@
     try {
       const r = await buildBaselineLink($('frame').value.trim(), token, wrapperBase)
       $('link').value = r.link
-      $('width').textContent = r.width
+      $('size').textContent = `${r.width} × ${r.height}`
       $('result').style.display = 'block'
       status(`Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements. The Figma image link is valid for about 30 days.`, 'ok')
     } catch (err) {
