@@ -24,6 +24,11 @@
   textarea { width: 100%; height: 110px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: 13px/1.4 ui-monospace, Menlo, monospace; word-break: break-all; resize: vertical; }
   .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   ol { padding-left: 20px; color: var(--muted); }
+  .privacy { margin-top: 40px; padding: 16px 20px; border: 1px solid var(--line); border-radius: 12px; }
+  .privacy h2 { font-size: 18px; margin: 0 0 8px; }
+  .privacy ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
+  .privacy li { margin: 6px 0; }
+  .privacy strong { color: var(--ink); }
 </style>
 </head>
 <body>
@@ -58,7 +63,17 @@
     </ol>
   </div>
 
-  <p class="hint" style="margin-top:32px">Your token is sent only to Figma (api.figma.com), directly from this browser. It is never added to the link.</p>
+  <section class="privacy">
+    <h2>Privacy and safety</h2>
+    <ul>
+      <li><strong>We store nothing.</strong> This is a static page with no server or database behind it. Your Figma link, token and design never reach us.</li>
+      <li><strong>Your token goes only to Figma</strong> (api.figma.com, over HTTPS), directly from this browser. It is never added to the baseline link.</li>
+      <li><strong>"Remember the token"</strong> keeps it only in this browser on this computer. Leave it unticked on shared or public computers.</li>
+      <li><strong>Use a trusted device and network.</strong> Avoid shared computers, and prefer your work network or VPN over public Wi-Fi.</li>
+      <li><strong>Treat the baseline link like the design itself.</strong> Anyone with the link can see the design image and its text for about 30 days. Share it only with people who can see the Figma file.</li>
+      <li><strong>Use a limited token:</strong> only the <code>file_content:read</code> scope, with a short expiry. Revoke it in Figma (Settings → Security) when you no longer need it.</li>
+    </ul>
+  </section>
 </main>
 <script type="module">
   import { buildBaselineLink } from '../figma-dom.js'
