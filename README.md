@@ -1,20 +1,29 @@
 # Figma baseline wrapper
 
-Shows a Figma-hosted design image at actual size (1x), on a white page with no margins, so Applitools Autonomous can capture it as a visual baseline.
+Turns a Figma frame into one link that Applitools Autonomous can capture as a visual baseline, so a live website can be compared against the Figma design.
 
-Without this page, Chrome opens the image in its built-in image viewer, which shrinks it to fit the window and adds a dark background.
+## Create a baseline link
 
-## Usage
+Open **https://ssharma007-dev.github.io/figma-baseline-wrapper/make/**, paste:
+
+1. the Figma frame link (select the frame in Figma, copy the browser address; it contains `node-id=`)
+2. a Figma personal access token with the `file_content:read` scope
+
+and click **Create baseline link**. The token is sent only to Figma, from your browser, and is never added to the link.
+
+## What the link contains
 
 ```
-https://ssharma007-dev.github.io/figma-baseline-wrapper/?img=<Figma image link>
+https://ssharma007-dev.github.io/figma-baseline-wrapper/?img=<Figma image link>#dom=<packed design elements>
 ```
 
-Get the Figma image link from the Figma REST API (token scope `file_content:read`):
+- `img`: the frame exported by Figma as a PNG at 1x. The page shows it at actual size, so the screenshot is pixel-identical to the design. (Chrome on its own would shrink it and add a dark background.)
+- `dom`: the frame's elements from the Figma API (type, name, position, size, text, font, colour), rebuilt as invisible HTML elements over the image. This gives the Figma baseline a DOM.
 
-```bash
-curl -H "X-Figma-Token: <token>" \
-  "https://api.figma.com/v1/images/<fileKey>?ids=<nodeId>&format=png&scale=1"
-```
+A link with only `?img=` still works and shows the design image without the DOM.
 
-Set the Autonomous viewport width to the Figma frame width. The height can be anything; long designs scroll.
+## Use it in Autonomous
+
+1. Set the viewport width to the Figma frame width (the height can be anything).
+2. Run 1: open the baseline link and take a full-page visual checkpoint.
+3. Run 2: change only the URL to the live website page and run again.

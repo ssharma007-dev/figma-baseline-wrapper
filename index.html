@@ -5,18 +5,34 @@
 <title>Figma design</title>
 <style>
   html, body { margin: 0; padding: 0; background: #FFFFFF; }
-  img { display: block; }
+  #design { position: relative; }
+  #design > img { display: block; }
+  /* Figma DOM layer: real positions, sizes and text from Figma, drawn invisibly over the image */
+  .fg { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent;
+        overflow: hidden; white-space: pre-wrap; box-sizing: border-box; pointer-events: none; font: inherit; }
 </style>
 </head>
 <body>
-  <!-- Usage: /wrapper/?img=<url-encoded image URL>
-       Shows the image at its natural size (1x) with no margins, so Chrome
-       doesn't shrink it or add a dark background around it. -->
-  <img id="design" alt="Figma design">
-  <script>
-    var src = new URLSearchParams(location.search).get('img');
-    if (src) document.getElementById('design').src = src;
-    else document.body.textContent = 'Add ?img=<image URL> to the address.';
+  <!-- Usage: /?img=<Figma image link>                       (round 1: design image only)
+              /?img=<Figma image link>#dom=<packed nodes>    (round 2: design image + Figma DOM; made by /make/)
+       Shows the design at actual size (1x) with no margins, so Chrome doesn't shrink it or add a dark background. -->
+  <div id="design"><img id="img" alt="Figma design"></div>
+  <script type="module">
+    import { decodeDom, renderDom } from './figma-dom.js'
+    const src = new URLSearchParams(location.search).get('img')
+    const packed = new URLSearchParams(location.hash.slice(1)).get('dom')
+    const design = document.getElementById('design')
+    if (!src) {
+      document.body.textContent = 'Add ?img=<Figma image link> to the address, or create a link at /make/.'
+    } else {
+      document.getElementById('img').src = src
+      if (packed) {
+        const tree = await decodeDom(packed)
+        Object.assign(design.style, { width: tree.b[2] + 'px', height: tree.b[3] + 'px' })
+        renderDom(tree, design)
+        document.documentElement.dataset.figmaDom = 'ready'
+      }
+    }
   </script>
 </body>
 </html>
