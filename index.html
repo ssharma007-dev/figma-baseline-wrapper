@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Figma design</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #FFFFFF; }
+  img { display: block; }
+</style>
+</head>
+<body>
+  <!-- Usage: /wrapper/?img=<url-encoded image URL>
+       Shows the image at its natural size (1x) with no margins, so Chrome
+       doesn't shrink it or add a dark background around it. -->
+  <img id="design" alt="Figma design">
+  <script>
+    var src = new URLSearchParams(location.search).get('img');
+    if (src) document.getElementById('design').src = src;
+    else document.body.textContent = 'Add ?img=<image URL> to the address.';
+  </script>
+</body>
+</html>
