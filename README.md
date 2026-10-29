@@ -2,6 +2,17 @@
 
 Turns a Figma frame into one link that Applitools Autonomous can capture as a visual baseline, so a live website can be compared against the Figma design.
 
+## Why use this instead of the Figma API directly
+
+- The Figma API gives an image link, and Autonomous needs a web page to capture, so this page wraps that image.
+- Opened on its own, the Figma image is shrunk by Chrome and shown on a dark background; this page shows it at actual size on a plain page.
+- With this page, only the viewport width has to match the frame; the height can be anything, because the page scrolls.
+- The Figma API returns the image and the design elements separately; this page combines both into one link.
+- The design elements become a real DOM under the image, so the Figma baseline has a DOM like a live website does.
+- No one has to write code or call the API by hand; paste a frame link and a token, and copy the result.
+- Figma errors (wrong token, missing frame, rate limit) are explained in plain words, not as raw error codes.
+- Nothing is stored; the token goes only from your browser to Figma, and never into the link.
+
 ## Create a baseline link
 
 Open **https://ssharma007-dev.github.io/figma-baseline-wrapper/make/**, paste:
