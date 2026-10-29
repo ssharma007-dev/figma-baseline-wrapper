@@ -76,7 +76,8 @@
   </section>
 </main>
 <script type="module">
-  import { buildBaselineLink } from '../figma-dom.js?v=4c368dc'
+  // Load the script fresh on every visit, so users never run an old cached copy
+  const { buildBaselineLink } = await import(`../figma-dom.js?t=${Date.now()}`)
   const $ = (id) => document.getElementById(id)
   const wrapperBase = new URL('../', location.href).href
   const KEY = 'figmaToken'
