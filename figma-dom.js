@@ -12,11 +12,47 @@ export function parseFrameLink(link) {
   return { fileKey, nodeId }
 }
 
+const waitText = (s) => s < 120 ? `${s} seconds` : s < 7200 ? `${Math.ceil(s / 60)} minutes`
+  : s < 172800 ? `${Math.ceil(s / 3600)} hours` : `${Math.ceil(s / 86400)} days`
+
+// Turns any failed Figma call into a plain message the page can show as-is
 async function figma(path, token) {
-  const res = await fetch(`${API}/${path}`, { headers: { 'X-Figma-Token': token } })
-  if (res.status === 403) throw new Error('Figma refused the token. Check it has the file_content:read scope and can open this file.')
-  if (!res.ok) throw new Error(`Figma API error ${res.status} for ${path}`)
-  return res.json()
+  if (!token) throw new Error('Enter your Figma personal access token.')
+  let res
+  try {
+    res = await fetch(`${API}/${path}`, { headers: { 'X-Figma-Token': token } })
+  } catch {
+    throw new Error('Could not reach Figma. Check your internet connection, VPN or firewall (api.figma.com must be allowed), then try again.')
+  }
+  if (res.ok) {
+    try { return await res.json() } catch { throw new Error('Figma sent back a response we could not read. Try again in a minute.') }
+  }
+
+  // Figma's error body is usually {"status": 404, "err": "Not found"}
+  let detail = ''
+  try { const body = await res.json(); detail = body.err ?? body.message ?? '' } catch {}
+  const figmaSays = detail ? ` (Figma says: "${detail}")` : ''
+
+  switch (res.status) {
+    case 400:
+      throw new Error(`Figma could not read this request${figmaSays}. Check the frame link is copied straight from the browser address bar with a frame selected.`)
+    case 401:
+    case 403:
+      throw new Error(`Figma refused the token${figmaSays}. Check the token is pasted in full, has not expired or been revoked, has the file_content:read scope, and belongs to someone who can open this file.`)
+    case 404:
+      throw new Error(`Figma could not find this file or frame${figmaSays}. Check the link, and that the token owner has access to the file.`)
+    case 429: {
+      // Figma exposes these headers to browsers; low limits come from the plan of the file and the seat of the token owner
+      const wait = Number(res.headers.get('Retry-After'))
+      const plan = res.headers.get('X-Figma-Plan-Tier')
+      const low = res.headers.get('X-Figma-Rate-Limit-Type') === 'low'
+      throw new Error(`Figma's rate limit has been reached for this token. Try again in ${wait > 0 ? waitText(wait) : 'a while'}.` +
+        (low ? ` This token is on Figma's low limit${plan ? ` (${plan} plan)` : ''}, which allows only a few of these calls per month for files on the Starter plan or for View/Collab seats. To avoid waiting, use a token from someone with a Full or Dev seat on a paid Figma plan, and keep the file in that team.` : ''))
+    }
+    default:
+      if (res.status >= 500) throw new Error(`Figma is having problems right now (error ${res.status})${figmaSays}. Try again in a few minutes.`)
+      throw new Error(`Figma returned an unexpected error (${res.status})${figmaSays}. Try again, and if it keeps happening, send this message to Applitools support.`)
+  }
 }
 
 const hex = (c, opacity = 1) => {
@@ -69,6 +105,7 @@ async function pipe(bytes, stream) {
 
 export async function buildBaselineLink(frameLink, token, wrapperBase) {
   const { fileKey, nodeId } = parseFrameLink(frameLink)
+  if (typeof CompressionStream === 'undefined') throw new Error('This browser is too old to build the link. Use a current version of Chrome, Edge, Firefox or Safari.')
   const id = encodeURIComponent(nodeId)
   const [images, nodes] = await Promise.all([
     figma(`images/${fileKey}?ids=${id}&format=png&scale=1`, token),

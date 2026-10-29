@@ -97,7 +97,7 @@
       $('result').style.display = 'block'
       status(`Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements. The Figma image link is valid for about 30 days.`, 'ok')
     } catch (err) {
-      status(err.message, 'err')
+      status(err?.message || 'Something went wrong while building the link. Reload the page and try again.', 'err')
     } finally {
       $('go').disabled = false
     }
