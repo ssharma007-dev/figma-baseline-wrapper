@@ -6,17 +6,19 @@
 <style>
   html, body { margin: 0; padding: 0; background: #FFFFFF; }
   #design { position: relative; }
-  #design > img { display: block; }
+  #design > img { display: block; user-select: none; -webkit-user-select: none; }
   /* Figma DOM layer: real positions, sizes and text from Figma, drawn invisibly over the image */
   .fg { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent;
-        overflow: hidden; white-space: pre-wrap; box-sizing: border-box; pointer-events: none; font: inherit; }
+        overflow: hidden; white-space: pre-wrap; box-sizing: border-box; pointer-events: auto; user-select: text; -webkit-user-select: text; cursor: text; font: inherit; }
+  /* Text stays invisible, but a selection shows so you can check it is there */
+  .fg::selection { background: rgba(79, 70, 229, .3); }
 </style>
 </head>
 <body>
   <!-- Usage: /?img=<Figma image link>                       (round 1: design image only)
               /?img=<Figma image link>#dom=<packed nodes>    (round 2: design image + Figma DOM; made by /make/)
        Shows the design at actual size (1x) with no margins, so Chrome doesn't shrink it or add a dark background. -->
-  <div id="design"><img id="img" alt="Figma design"></div>
+  <div id="design"><img id="img" alt="Figma design" draggable="false"></div>
   <script type="module">
     import { decodeDom, renderDom } from './figma-dom.js'
     const src = new URLSearchParams(location.search).get('img')
