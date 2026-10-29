@@ -29,12 +29,20 @@
   .privacy ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
   .privacy li { margin: 6px 0; }
   .privacy strong { color: var(--ink); }
+  .modes { display: grid; gap: 8px; margin-top: 8px; }
+  .mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-weight: 400; margin: 0; }
+  .mode:has(input:checked) { border-color: var(--brand); background: var(--soft); }
+  .mode input { margin-top: 4px; }
+  .mode span { color: var(--muted); font-size: 14px; }
+  .mode strong { color: var(--ink); display: block; font-size: 16px; }
+  #warnings { display: none; margin-top: 12px; color: #92400E; font-size: 14px; }
+  #warnings ul { margin: 4px 0 0; padding-left: 20px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Figma baseline link maker</h1>
-  <p class="lead">Turns a Figma frame into one link for Applitools Autonomous. The link shows the design at actual size and carries the design's elements (positions, sizes, text, colours) as DOM.</p>
+  <p class="lead">Turns a Figma frame into one link for Applitools Autonomous. The link shows the design at actual size and carries the design's elements (positions, sizes, text, colours) as DOM. Choose a Figma image, or text drawn by the browser to compare text.</p>
 
   <form id="form">
     <label for="frame">Figma frame link <span class="hint">(select the frame in Figma, then copy the browser address)</span></label>
@@ -43,6 +51,12 @@
     <label for="token">Figma personal access token <span class="hint">(scope: file_content:read)</span></label>
     <input id="token" type="password" placeholder="figd_…" required autocomplete="off">
     <div class="row"><input id="remember" type="checkbox"><label for="remember" style="margin:0;font-weight:400">Remember the token in this browser</label></div>
+
+    <label>Baseline type</label>
+    <div class="modes">
+      <label class="mode"><input type="radio" name="mode" value="image" checked><div><strong>Figma image</strong><span>Figma's exact picture of the design. Best with the Layout match level: text drawn by Figma always differs slightly from text drawn by a browser.</span></div></label>
+      <label class="mode"><input type="radio" name="mode" value="text"><div><strong>Browser-drawn text</strong><span>The browser draws the design's text, boxes and colours from Figma's data; photos and icons are Figma images. Use it to compare text with the website (Strict or Dynamic match level).</span></div></label>
+    </div>
 
     <button class="primary" id="go" type="submit">Create baseline link</button>
   </form>
@@ -56,6 +70,7 @@
       <button id="copy" type="button">Copy link</button>
       <button id="open" type="button">Open preview</button>
     </div>
+    <div id="warnings"><strong>Check before you use it:</strong><ul id="warning-list"></ul></div>
     <ol>
       <li>In Autonomous, set the viewport to <strong id="size"></strong> (the Figma frame size). The width must match exactly. The height can be smaller; the rest of the design scrolls and full-page capture still gets all of it.</li>
       <li>Run 1: open this link and take a full-page visual checkpoint. It becomes the baseline.</li>
@@ -77,7 +92,7 @@
 </main>
 <script type="module">
   // Load the script fresh on every visit, so users never run an old cached copy
-  const { buildBaselineLink } = await import(`../figma-dom.js?t=${Date.now()}`)
+  const { buildBaselineLink, buildTextModeLink } = await import(`../figma-dom.js?t=${Date.now()}`)
   const $ = (id) => document.getElementById(id)
   const wrapperBase = new URL('../', location.href).href
   const KEY = 'figmaToken'
@@ -92,11 +107,17 @@
     $('go').disabled = true; $('result').style.display = 'none'
     status('Reading the frame from Figma…')
     try {
-      const r = await buildBaselineLink($('frame').value.trim(), token, wrapperBase)
+      const textMode = document.querySelector('input[name=mode]:checked').value === 'text'
+      const r = await (textMode ? buildTextModeLink : buildBaselineLink)($('frame').value.trim(), token, wrapperBase)
+      const warnings = r.warnings ?? []
+      $('warning-list').replaceChildren(...warnings.map((w) => Object.assign(document.createElement('li'), { textContent: w })))
+      $('warnings').style.display = warnings.length ? 'block' : 'none'
       $('link').value = r.link
       $('size').textContent = `${r.width} × ${r.height}`
       $('result').style.display = 'block'
-      status(`Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements. The Figma image link is valid for about 30 days.`, 'ok')
+      status(textMode
+        ? `Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements, ${r.imageCount} drawn as Figma images. The image links are valid for about 30 days.`
+        : `Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements. The Figma image link is valid for about 30 days.`, 'ok')
     } catch (err) {
       status(err?.message || 'Something went wrong while building the link. Reload the page and try again.', 'err')
     } finally {

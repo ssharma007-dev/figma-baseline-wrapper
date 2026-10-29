@@ -33,6 +33,19 @@ https://ssharma007-dev.github.io/figma-baseline-wrapper/?img=<Figma image link>#
 
 A link with only `?img=` still works and shows the design image without the DOM.
 
+## Baseline type: Figma image or browser-drawn text
+
+The link maker offers two baseline types.
+
+- **Figma image** (`?img=…#dom=…`): Figma's exact picture of the design, with an invisible DOM on top. Text in it is drawn by Figma, so it always differs slightly from text drawn by a browser. Use the Layout match level.
+- **Browser-drawn text** (`#dom=…` only): the browser draws the design from Figma's data. Text is real, visible HTML text in the design's fonts (loaded from Google Fonts), boxes and buttons are drawn with CSS, and only parts with no text inside (photos, icons) are Figma images. The baseline and the website are then drawn the same way, so Strict or Dynamic shows real text differences (a typo, a changed number, a different font) instead of font-rendering noise.
+
+Limits of browser-drawn text:
+
+- Line breaks are where the browser puts them; on rare designs one word can wrap differently from Figma.
+- Fonts that are not on Google Fonts show only if installed on the test machine; the link maker warns about them.
+- Image or gradient fills behind text, and paragraph spacing, are not drawn; the link maker warns about the fills.
+
 ## Use it in Autonomous
 
 1. Set the viewport width to the Figma frame width (the height can be anything).

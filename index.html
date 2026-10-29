@@ -10,6 +10,12 @@
   /* Figma DOM layer: real positions, sizes and text from Figma, drawn invisibly over the image */
   .fg { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; color: transparent;
         overflow: hidden; white-space: pre-wrap; box-sizing: border-box; pointer-events: auto; user-select: text; -webkit-user-select: text; cursor: text; font: inherit; }
+  /* Text mode: the design drawn by the browser, with visible text */
+  .fv { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; box-sizing: border-box; color: #000000;
+        font: inherit; font-kerning: normal; overflow: visible; text-rendering: auto; -webkit-font-smoothing: antialiased; }
+  img.fv { display: block; object-fit: fill; }
+  html[data-figma-mode="text"] #design { visibility: hidden; }
+  html[data-figma-mode="text"][data-figma-dom="ready"] #design { visibility: visible; }
   /* Text stays invisible, but a selection shows so you can check it is there */
   .fg::selection { background: rgba(79, 70, 229, .3); }
 </style>
@@ -17,19 +23,26 @@
 <body>
   <!-- Usage: /?img=<Figma image link>                       (round 1: design image only)
               /?img=<Figma image link>#dom=<packed nodes>    (round 2: design image + Figma DOM; made by /make/)
+              /#dom=<packed nodes>                          (text mode: the browser draws the design and its text; made by /make/)
        Shows the design at actual size (1x) with no margins, so Chrome doesn't shrink it or add a dark background. -->
   <div id="design"><img id="img" alt="Figma design" draggable="false"></div>
   <script type="module">
-    import { decodeDom, renderDom } from './figma-dom.js'
+    import { decodeDom, renderDom, renderVisible } from './figma-dom.js?v=2'
     const src = new URLSearchParams(location.search).get('img')
     const packed = new URLSearchParams(location.hash.slice(1)).get('dom')
     const design = document.getElementById('design')
-    if (!src) {
+    const tree = packed && await decodeDom(packed)
+    if (tree?.v === 2) {
+      document.documentElement.dataset.figmaMode = 'text'
+      document.getElementById('img').remove()
+      Object.assign(design.style, { width: tree.b[2] + 'px', height: tree.b[3] + 'px' })
+      await renderVisible(tree, design)
+      document.documentElement.dataset.figmaDom = 'ready'
+    } else if (!src) {
       document.body.textContent = 'Add ?img=<Figma image link> to the address, or create a link at /make/.'
     } else {
       document.getElementById('img').src = src
-      if (packed) {
-        const tree = await decodeDom(packed)
+      if (tree) {
         Object.assign(design.style, { width: tree.b[2] + 'px', height: tree.b[3] + 'px' })
         renderDom(tree, design)
         document.documentElement.dataset.figmaDom = 'ready'
