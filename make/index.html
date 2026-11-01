@@ -23,6 +23,7 @@
   #result { display: none; margin-top: 8px; padding: 16px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; }
   textarea { width: 100%; height: 110px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font: 13px/1.4 ui-monospace, Menlo, monospace; word-break: break-all; resize: vertical; }
   .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button.copied { background: #16A34A; border-color: #16A34A; color: #FFFFFF; }
   ol { padding-left: 20px; color: var(--muted); }
   .privacy { margin-top: 40px; padding: 16px 20px; border: 1px solid var(--line); border-radius: 12px; }
   .privacy h2 { font-size: 18px; margin: 0 0 8px; }
@@ -125,8 +126,16 @@
     }
   })
   $('copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText($('link').value); status('Link copied.', 'ok') }
-    catch { $('link').select(); status('Press ⌘C to copy the selected link.') }
+    const btn = $('copy')
+    try {
+      await navigator.clipboard.writeText($('link').value)
+      $('link').select()
+      btn.textContent = '✓ Copied!'
+      btn.classList.add('copied')
+      clearTimeout(btn._t)
+      btn._t = setTimeout(() => { btn.textContent = 'Copy link'; btn.classList.remove('copied') }, 2000)
+    }
+    catch { $('link').select(); btn.textContent = 'Press ⌘C to copy'; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = 'Copy link' }, 3000) }
   })
   $('open').addEventListener('click', () => window.open($('link').value, '_blank'))
 </script>
