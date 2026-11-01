@@ -38,7 +38,7 @@ A link with only `?img=` still works and shows the design image without the DOM.
 The link maker offers two baseline types.
 
 - **Figma image** (`?img=…#dom=…`): Figma's exact picture of the design, with an invisible DOM on top. Text in it is drawn by Figma, so it always differs slightly from text drawn by a browser. Use the Layout match level.
-- **Browser-drawn text** (`#dom=…` only): the browser draws the design from Figma's data. Text is real, visible HTML text in the design's fonts (loaded from Google Fonts), boxes and buttons are drawn with CSS, and only parts with no text inside (photos, icons) are Figma images. The baseline and the website are then drawn the same way, so Strict or Dynamic shows real text differences (a typo, a changed number, a different font) instead of font-rendering noise.
+- **Browser-drawn text** (`#dom=…` only): the browser draws the design from Figma's data. Text is real, visible HTML text in the design's fonts (loaded from Google Fonts), boxes and buttons are drawn with CSS, and only parts with no text inside (photos, icons) are Figma images. The baseline and the website are then drawn the same way, so real text differences (a typo, a changed number, a different font) stand out instead of font-rendering noise.
 
 Limits of browser-drawn text:
 
