@@ -27,7 +27,7 @@
        Shows the design at actual size (1x) with no margins, so Chrome doesn't shrink it or add a dark background. -->
   <div id="design"><img id="img" alt="Figma design" draggable="false"></div>
   <script type="module">
-    import { decodeDom, renderDom, renderVisible } from './figma-dom.js?v=2'
+    import { decodeDom, renderDom, renderVisible } from './figma-dom.js?v=3'
     const src = new URLSearchParams(location.search).get('img')
     const packed = new URLSearchParams(location.hash.slice(1)).get('dom')
     const design = document.getElementById('design')

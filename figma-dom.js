@@ -66,6 +66,14 @@ const solidFill = (fills) => {
   return f ? hex(f.color, f.opacity ?? 1) : undefined
 }
 const r1 = (n) => Math.round(n * 10) / 10
+// Figma linear gradient -> CSS linear-gradient (direction from the gradient handles)
+const linearGradient = (fills, box) => {
+  const g = (fills ?? []).find((p) => p.type === 'GRADIENT_LINEAR' && p.visible !== false)
+  if (!g?.gradientHandlePositions?.length || !g.gradientStops?.length) return undefined
+  const [a, b] = g.gradientHandlePositions
+  const angle = Math.round(Math.atan2((b.y - a.y) * box.height, (b.x - a.x) * box.width) * 180 / Math.PI + 90)
+  return `linear-gradient(${angle}deg, ${g.gradientStops.map((s) => `${hex(s.color, g.opacity ?? 1)} ${r1(s.position * 100)}%`).join(', ')})`
+}
 
 // Compact node: t=type, n=name, b=[x,y,w,h] relative to parent, x=text, s=text style, f=fill colour, k=children
 function compact(node, parentBox) {
@@ -170,6 +178,8 @@ const S3 = 'https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/'
 const CONTAINERS = new Set(['FRAME', 'GROUP', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE', 'SECTION'])
 const visibleFills = (n) => (n.fills ?? []).filter((p) => p.visible !== false)
 const hasText = (n) => n.type === 'TEXT' || (n.children ?? []).some((c) => c.visible !== false && hasText(c))
+const ownImage = (n) => visibleFills(n).some((f) => f.type === 'IMAGE')
+const hasImage = (n) => ownImage(n) || (n.children ?? []).some((c) => c.visible !== false && hasImage(c))
 
 function radius(n) {
   if (n.rectangleCornerRadii) return n.rectangleCornerRadii.map(r1)
@@ -230,14 +240,24 @@ function compactVisible(node, parentBox, ctx, parent) {
   const fills = visibleFills(node)
   const plainBox = !node.children?.length && fills.every((f) => f.type === 'SOLID') && ['RECTANGLE', 'FRAME', 'ELLIPSE'].includes(node.type)
   if (!hasText(node) && !plainBox) {
-    // No text inside: Figma draws it, exported as one image
-    out.img = node.id
-    ctx.images.push(node.id)
-    return out
+    if (ownImage(node) && !node.children?.length) {
+      // A photo (image fill): stays an image
+      out.img = node.id
+      ctx.images.push(node.id)
+      return out
+    }
+    if (!(CONTAINERS.has(node.type) && node.children?.length && hasImage(node))) {
+      // Icons, vectors and shapes: drawn as an inline SVG element, not a picture
+      out.svg = node.id
+      ctx.svgs.push(node.id)
+      return out
+    }
+    // A group that holds a photo: keep the group, draw each child on its own
   }
 
   out.f = solidFill(fills)
-  if (fills.some((f) => f.type !== 'SOLID')) ctx.warn.add(`"${node.name}" has an image or gradient fill behind text; it is drawn without that fill.`)
+  out.g = linearGradient(fills, box)
+  if (fills.some((f) => f.type !== 'SOLID' && !(f.type === 'GRADIENT_LINEAR' && out.g))) ctx.warn.add(`"${node.name}" has an image or gradient fill behind text; it is drawn without that fill.`)
   out.r = node.type === 'ELLIPSE' ? '50%' : radius(node)
   const stroke = (node.strokes ?? []).find((p) => p.visible !== false && p.type === 'SOLID')
   if (stroke && node.strokeWeight) out.st = [r1(node.strokeWeight), hex(stroke.color, stroke.opacity ?? 1), node.strokeAlign]
@@ -286,7 +306,7 @@ export async function buildTextModeLink(frameLink, token, wrapperBase) {
   const root = nodes.nodes?.[nodeId]?.document
   if (!root) throw new Error(`Figma returned nothing for node ${nodeId}. Is it a frame in this file?`)
 
-  const ctx = { images: [], fonts: new Set(), warn: new Set() }
+  const ctx = { images: [], svgs: [], fonts: new Set(), warn: new Set() }
   const tree = compactVisible(root, root.absoluteBoundingBox, ctx)
   tree.b[0] = tree.b[1] = 0
   tree.v = 2
@@ -307,12 +327,54 @@ export async function buildTextModeLink(frameLink, token, wrapperBase) {
     ;(n.k ?? []).forEach(setUrls)
   })(tree)
 
+  // Export icons and shapes as SVG, cropped to each layer's box, and keep the SVG markup in the link
+  const svgUrls = {}
+  for (let i = 0; i < ctx.svgs.length; i += 50) {
+    const ids = ctx.svgs.slice(i, i + 50).map(encodeURIComponent).join(',')
+    Object.assign(svgUrls, (await figma(`images/${fileKey}?ids=${ids}&format=svg&use_absolute_bounds=true`, token)).images)
+  }
+  const svgText = {}
+  await Promise.all(Object.entries(svgUrls).map(async ([id, u]) => {
+    if (!u) return
+    try { const r = await fetch(u); if (r.ok) svgText[id] = minifySvg(await r.text()) } catch {}
+  }))
+  ;(function setSvgs(n) {
+    if (n.svg) {
+      if (svgText[n.svg]) n.sv = svgText[n.svg]
+      else ctx.warn.add(`Figma could not export "${n.n}" as SVG; it is left empty.`)
+      delete n.svg
+    }
+    ;(n.k ?? []).forEach(setSvgs)
+  })(tree)
+
   tree.gf = await googleFontsQuery(ctx.fonts, ctx.warn)
   const packed = toB64Url(await pipe(new TextEncoder().encode(JSON.stringify(tree)), new CompressionStream('deflate-raw')))
   let count = 0
   ;(function walk(n) { count++; (n.k ?? []).forEach(walk) })(tree)
-  return { link: `${wrapperBase}#dom=${packed}`, nodeCount: count, imageCount: ctx.images.length,
+  return { link: `${wrapperBase}#dom=${packed}`, nodeCount: count, imageCount: ctx.images.length, svgCount: ctx.svgs.length,
     width: Math.round(tree.b[2]), height: Math.round(tree.b[3]), warnings: [...ctx.warn] }
+}
+
+// Shrinks Figma's SVG export so it fits in the link
+function minifySvg(t) {
+  return t.replace(/<\?xml[^>]*>/g, '').replace(/\s*\n\s*/g, ' ').replace(/>\s+</g, '><').replace(/\s+xmlns:xlink="[^"]*"/g, '').trim()
+}
+
+// The link can be edited by anyone, so only plain drawing markup is allowed: no scripts, event handlers or links
+const SVG_TAGS = new Set(['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'defs', 'clippath', 'mask', 'lineargradient', 'radialgradient', 'stop', 'filter', 'feflood', 'fecolormatrix', 'feoffset', 'fegaussianblur', 'feblend', 'fecomposite', 'femorphology', 'use', 'pattern', 'image', 'title', 'desc'])
+function safeSvg(markup) {
+  const doc = new DOMParser().parseFromString(markup, 'image/svg+xml')
+  const root = doc.documentElement
+  if (!root || root.nodeName.toLowerCase() !== 'svg') return null
+  for (const el of [root, ...root.querySelectorAll('*')]) {
+    if (!SVG_TAGS.has(el.nodeName.toLowerCase())) { el.remove(); continue }
+    for (const a of [...el.attributes]) {
+      const name = a.name.toLowerCase(), v = a.value.trim().toLowerCase()
+      if (name.startsWith('on') || name === 'style' && /url\(\s*['"]?\s*javascript/.test(v)) el.removeAttribute(a.name)
+      else if ((name === 'href' || name === 'xlink:href') && !(v.startsWith('#') || v.startsWith('data:image/'))) el.removeAttribute(a.name)
+    }
+  }
+  return document.importNode(root, true)
 }
 
 const cssCase = { UPPER: 'uppercase', LOWER: 'lowercase', TITLE: 'capitalize' }
@@ -376,6 +438,12 @@ export function renderVisible(tree, container) {
       return el
     }
 
+    if (n.sv) {
+      const svg = safeSvg(n.sv)
+      if (svg) { Object.assign(svg.style, { display: 'block', width: '100%', height: '100%', overflow: 'visible' }); svg.setAttribute('preserveAspectRatio', 'none'); el.appendChild(svg) }
+      return el
+    }
+
     if (n.u) {
       el.src = n.u.startsWith('http') ? n.u : S3 + n.u
       el.alt = n.n
@@ -383,7 +451,8 @@ export function renderVisible(tree, container) {
       return el
     }
 
-    if (n.f) el.style.background = n.f
+    if (n.g) el.style.background = n.g
+    else if (n.f) el.style.background = n.f
     if (n.r != null) el.style.borderRadius = Array.isArray(n.r) ? n.r.map((v) => v + 'px').join(' ') : (typeof n.r === 'number' ? n.r + 'px' : n.r)
     if (n.st) {
       const [sw, sc, align] = n.st
