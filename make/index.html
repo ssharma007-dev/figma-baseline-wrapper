@@ -73,7 +73,7 @@
     </div>
     <div id="warnings"><strong>Check before you use it:</strong><ul id="warning-list"></ul></div>
     <ol>
-      <li>In Autonomous, set the viewport to <strong id="size"></strong> (the Figma frame size). The width must match exactly. The height can be smaller; the rest of the design scrolls and full-page capture still gets all of it.</li>
+      <li>In Autonomous, set the viewport to <strong id="size"></strong> (the Figma frame size). The width, <strong id="width"></strong>, must match exactly. The height can be smaller; the rest of the design scrolls and full-page capture still gets all of it.</li>
       <li>Run 1: open this link and take a full-page visual checkpoint. It becomes the baseline.</li>
       <li>Run 2: change only the URL to the live website page and run again.</li>
     </ol>
@@ -114,11 +114,12 @@
       $('warning-list').replaceChildren(...warnings.map((w) => Object.assign(document.createElement('li'), { textContent: w })))
       $('warnings').style.display = warnings.length ? 'block' : 'none'
       $('link').value = r.link
-      $('size').textContent = `${r.width} × ${r.height}`
+      $('size').textContent = `width ${r.width} px × height ${r.height} px`
+      $('width').textContent = `${r.width} px`
       $('result').style.display = 'block'
       status(textMode
-        ? `Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements, ${r.imageCount} drawn as Figma images. The image links are valid for about 30 days.`
-        : `Done: ${r.width} × ${r.height} frame, ${r.nodeCount} design elements. The Figma image link is valid for about 30 days.`, 'ok')
+        ? `Done: the frame is ${r.width} px wide × ${r.height} px tall, ${r.nodeCount} design elements, ${r.imageCount} drawn as Figma images. The image links are valid for about 30 days.`
+        : `Done: the frame is ${r.width} px wide × ${r.height} px tall, ${r.nodeCount} design elements. The Figma image link is valid for about 30 days.`, 'ok')
     } catch (err) {
       status(err?.message || 'Something went wrong while building the link. Reload the page and try again.', 'err')
     } finally {
