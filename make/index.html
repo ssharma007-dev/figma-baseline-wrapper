@@ -54,8 +54,8 @@
 
     <label>Baseline type</label>
     <div class="modes">
-      <label class="mode"><input type="radio" name="mode" value="image" checked><div><strong>Figma image</strong><span>Figma's exact picture of the design. Best with the Layout match level: text drawn by Figma always differs slightly from text drawn by a browser.</span></div></label>
-      <label class="mode"><input type="radio" name="mode" value="text"><div><strong>Browser-drawn text</strong><span>The browser draws the design's text, boxes and colours from Figma's data; photos and icons are Figma images. Use it to compare text with the website (Strict or Dynamic match level).</span></div></label>
+      <label class="mode"><input type="radio" name="mode" value="image" checked><div><strong>Figma image (recommended)</strong><span>The default, and the right choice in most cases. Figma's exact picture of the design. Use it with the Layout match level: text drawn by Figma always differs slightly from text drawn by a browser.</span></div></label>
+      <label class="mode"><input type="radio" name="mode" value="text"><div><strong>Browser-drawn text</strong><span>The browser draws the design's text, boxes and colours from Figma's data; photos and icons are Figma images. Use it only when the website loads the same font version as Figma. If the website uses an older version of the font (for example an older Inter from Google Fonts), the letters come out a different width and you get more differences, not fewer. Then use Strict or Dynamic match level to compare text.</span></div></label>
     </div>
 
     <button class="primary" id="go" type="submit">Create baseline link</button>
