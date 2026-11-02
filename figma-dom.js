@@ -355,6 +355,17 @@ export async function buildTextModeLink(frameLink, token, wrapperBase) {
     width: Math.round(tree.b[2]), height: Math.round(tree.b[3]), warnings: [...ctx.warn] }
 }
 
+// Hybrid mode: Figma's exact image on screen, with the browser-drawn elements (real fonts, images, icons) as the DOM
+// underneath. The screenshot is Figma's picture, and the DOM boxes match it.
+export async function buildHybridLink(frameLink, token, wrapperBase) {
+  const { fileKey, nodeId } = parseFrameLink(frameLink)
+  const r = await buildTextModeLink(frameLink, token, wrapperBase)
+  const images = await figma(`images/${fileKey}?ids=${encodeURIComponent(nodeId)}&format=png&scale=1`, token)
+  const imageUrl = images.images?.[nodeId]
+  if (!imageUrl) throw new Error(`Figma could not export node ${nodeId} as an image. Is it a frame in this file?`)
+  return { ...r, imageUrl, link: `${wrapperBase}?img=${encodeURIComponent(imageUrl)}${r.link.slice(r.link.indexOf('#'))}` }
+}
+
 // Shrinks Figma's SVG export so it fits in the link
 function minifySvg(t) {
   return t.replace(/<\?xml[^>]*>/g, '').replace(/\s*\n\s*/g, ' ').replace(/>\s+</g, '><').replace(/\s+xmlns:xlink="[^"]*"/g, '').trim()
@@ -393,8 +404,10 @@ function applyText(el, s) {
 
 // Draws the text-mode tree as visible HTML inside `container`.
 // Returns a promise that resolves when fonts and images have loaded.
-export function renderVisible(tree, container) {
-  const tagFor = (n) => n.t === 'TEXT' ? ((n.s?.fs ?? 0) >= 32 ? 'h2' : 'p') : (/button/i.test(n.n) ? 'button' : n.u ? 'img' : 'div')
+// With { iconsAsImages: true } (hybrid mode), icons and shapes become <img> elements holding their SVG, so the
+// DOM has an image element wherever the design has an icon, like the website's DOM has.
+export function renderVisible(tree, container, { iconsAsImages = false } = {}) {
+  const tagFor = (n) => n.t === 'TEXT' ? ((n.s?.fs ?? 0) >= 32 ? 'h2' : 'p') : (/button/i.test(n.n) ? 'button' : n.u || (n.sv && iconsAsImages) ? 'img' : 'div')
   const waits = []
 
   function build(n) {
@@ -440,6 +453,14 @@ export function renderVisible(tree, container) {
 
     if (n.sv) {
       const svg = safeSvg(n.sv)
+      if (svg && el.tagName === 'IMG') {
+        svg.setAttribute('preserveAspectRatio', 'none')
+        if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+        el.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg))
+        el.alt = n.n
+        waits.push(el.decode().catch(() => {}))
+        return el
+      }
       if (svg) { Object.assign(svg.style, { display: 'block', width: '100%', height: '100%', overflow: 'visible' }); svg.setAttribute('preserveAspectRatio', 'none'); el.appendChild(svg) }
       return el
     }

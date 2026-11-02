@@ -14,29 +14,42 @@
   .fv { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; box-sizing: border-box; color: #000000;
         font: inherit; font-kerning: normal; overflow: visible; text-rendering: auto; -webkit-font-smoothing: antialiased; }
   img.fv { display: block; object-fit: fill; }
-  html[data-figma-mode="text"] #design { visibility: hidden; }
-  html[data-figma-mode="text"][data-figma-dom="ready"] #design { visibility: visible; }
+  html[data-figma-mode] #design { visibility: hidden; }
+  html[data-figma-mode][data-figma-dom="ready"] #design { visibility: visible; }
+  /* Hybrid mode: Figma's image is painted over the browser-drawn elements. It is a CSS layer, not an element,
+     so the DOM holds only the design's own elements. */
+  html[data-figma-mode="hybrid"] #design::after { content: ""; position: absolute; inset: 0; z-index: 2147483647;
+        pointer-events: none; background: var(--figma-image) 0 0 / 100% 100% no-repeat; }
   /* Text stays invisible, but a selection shows so you can check it is there */
   .fg::selection { background: rgba(79, 70, 229, .3); }
 </style>
 </head>
 <body>
-  <!-- Usage: /?img=<Figma image link>                       (round 1: design image only)
+  <!-- Usage: /?img=<Figma image link>#dom=<v2 elements>       (hybrid: Figma's image on screen, browser-drawn elements as DOM; made by /make/)
+              /?img=<Figma image link>                       (round 1: design image only)
               /?img=<Figma image link>#dom=<packed nodes>    (round 2: design image + Figma DOM; made by /make/)
               /#dom=<packed nodes>                          (text mode: the browser draws the design and its text; made by /make/)
        Shows the design at actual size (1x) with no margins, so Chrome doesn't shrink it or add a dark background. -->
   <div id="design"><img id="img" alt="Figma design" draggable="false"></div>
   <script type="module">
-    import { decodeDom, renderDom, renderVisible } from './figma-dom.js?v=3'
+    import { decodeDom, renderDom, renderVisible } from './figma-dom.js?v=4'
     const src = new URLSearchParams(location.search).get('img')
     const packed = new URLSearchParams(location.hash.slice(1)).get('dom')
     const design = document.getElementById('design')
     const tree = packed && await decodeDom(packed)
+    const httpsSrc = src && /^https:\/\//i.test(src) ? new URL(src).href : null
     if (tree?.v === 2) {
-      document.documentElement.dataset.figmaMode = 'text'
+      const hybrid = !!httpsSrc
+      document.documentElement.dataset.figmaMode = hybrid ? 'hybrid' : 'text'
       document.getElementById('img').remove()
       Object.assign(design.style, { width: tree.b[2] + 'px', height: tree.b[3] + 'px' })
-      await renderVisible(tree, design)
+      const waits = [renderVisible(tree, design, { iconsAsImages: hybrid })]
+      if (hybrid) {
+        design.style.setProperty('--figma-image', `url("${httpsSrc.replace(/["\\]/g, encodeURIComponent)}")`)
+        const pic = new Image(); pic.src = httpsSrc
+        waits.push(pic.decode().catch(() => {}))
+      }
+      await Promise.all(waits)
       document.documentElement.dataset.figmaDom = 'ready'
     } else if (!src) {
       document.body.textContent = 'Add ?img=<Figma image link> to the address, or create a link at /make/.'
